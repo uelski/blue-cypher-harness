@@ -41,15 +41,15 @@ harness @ git+ssh://git@github.com/<!-- FILL: org -->/blue-cypher-harness@v0.1.0
 Pin an exact tag. Never a branch, never `main`. The pinned version is the mechanism that
 guarantees the tuned model and the prod prompt agree.
 
-## The Ctx object
+## The Deps object
 
 The harness declares what resources tools need; the backend constructs them at startup.
 
 ```python
 # backend, on startup
-from harness import Ctx
+from harness import Deps
 
-ctx = Ctx(
+deps = Deps(
     qdrant=QdrantClient(settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY),
     pg=pg_pool,
     <!-- FILL: nws / rtd / tavily clients -->
@@ -68,7 +68,7 @@ with the tool-call loop. The whole subgraph collapses into one node:
 
 ```python
 def agent_node(state):
-    traj = harness.run_episode(state["query"], model_fn, TOOLS, ctx)
+    traj = harness.run_episode(state["query"], model_fn, TOOLS, deps)
     return {"traj": traj, "answer": traj.final_answer, "steps": traj.steps}
 ```
 
@@ -118,7 +118,7 @@ Training rollouts will call these tools thousands of times.
 1. Audit item above
 2. Harness repo exists with tools ported and `run_episode` working, tested standalone
 3. `pip install harness@v0.1.0` in the backend
-4. Build `Ctx` at startup
+4. Build `Deps` at startup
 5. Delete backend tool modules and the router prompt
 6. Replace the tool fan-out subgraph with `agent_node`
 7. Verify the surviving conditional edges still read the fields they expect

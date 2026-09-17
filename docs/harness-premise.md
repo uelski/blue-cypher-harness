@@ -84,7 +84,7 @@ Same `run_episode` in every case. This is what makes model swapping a config val
 makes training/serving parity provable rather than hoped for.
 
 ```python
-def run_episode(query, model_fn, tools, ctx, max_steps=6) -> Trajectory:
+def run_episode(query, model_fn, tools, deps, max_steps=6) -> Trajectory:
     state = State(query=query)
     for _ in range(max_steps):
         messages = build_context(state, tools)      # format contract
@@ -92,7 +92,7 @@ def run_episode(query, model_fn, tools, ctx, max_steps=6) -> Trajectory:
         state.record(messages, action)
         if action.is_final:
             break
-        obs = execute(action, tools, ctx)           # errors become observations
+        obs = execute(action, tools, deps)          # errors become observations
         state.record_observation(obs)
     return state.to_trajectory()
 ```
@@ -107,16 +107,21 @@ The harness defines tools; the caller supplies connections. Credentials never le
 ```python
 # harness
 @tool
-def search_denver_data(ctx: Ctx, query: str, neighborhood: str | None = None) -> str:
-    hits = ctx.qdrant.search("denver_documents", query, filter=neighborhood)
+def search_denver_data(deps: Deps, query: str, neighborhood: str | None = None) -> str:
+    hits = deps.qdrant.search("denver_documents", query, filter=neighborhood)
     return format_hits(hits)          # ← this formatting is in the loop
 
-# prod                                    # training
-ctx = Ctx(qdrant=QdrantClient(PROD_URL))  ctx = Ctx(qdrant=QdrantClient(SNAPSHOT_URL))
+# prod                                      # training
+deps = Deps(qdrant=QdrantClient(PROD_URL))  deps = Deps(qdrant=QdrantClient(SNAPSHOT_URL))
 ```
 
 Training needs a **real** Qdrant. Trajectories generated against fake retrieval teach the
 model a fiction.
+
+`Deps` is deliberately *not* named `Ctx`. This repo already uses "context" for two other things —
+`build_context` (prompt assembly) and the model's context window — and a third meaning for the
+bag of database connections is a collision worth avoiding. It holds dependencies; it is called
+`Deps`.
 
 ## Decisions already made
 
@@ -214,7 +219,7 @@ rather than touching what the model sees.
 
 ### What MCP doesn't change
 
-- **Ctx injection already covers it.** The MCP server is a third consumer building its own `Ctx`,
+- **Deps injection already covers it.** The MCP server is a third consumer building its own `Deps`,
   exactly like prod and training.
 - **Tools-are-read-only still holds** — already a harness assumption, and also what makes a
   public server safe to expose.
@@ -228,8 +233,10 @@ per-caller cost caps are real work — and they live in the MCP server, not the 
 
 Stated up front so it's easy to accept:
 
-- Base model scores within ~2 points of the current prompted router zero-shot → ship the base
-  model, skip training. This is a win.
+- ~~Base model scores within ~2 points of the current prompted router zero-shot → ship the base
+  model, skip training. This is a win.~~ **Superseded.** Learning to train an open-weight model is
+  a goal in its own right (see Goals in `CLAUDE.md`), so a good zero-shot score is a data point,
+  not an exit. Measure it, then train anyway.
 - No eval set with programmatic scoring exists → there is no training signal and no way to
   know if anything worked. Do not proceed past this.
 - Tools can't be run for real during trajectory generation → the data will be fiction.

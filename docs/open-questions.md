@@ -31,6 +31,40 @@ disruptive than adding a tool.
 - [ ] `out_of_scope`
 - [ ] anything else?
 
+#### 2a. The shape of `Assistant`
+
+`Assistant` is the return type of every `ModelFn` and the thing `run_episode` branches on, so
+its shape is part of the action space and therefore part of the frozen format. It is currently
+underspecified. Minimum viable:
+
+```python
+@dataclass
+class Assistant:
+    tool_calls: list[ToolCall]     # zero or more
+    text: str | None               # final answer, or reasoning
+    is_final: bool                 # loop exit condition
+```
+
+Decide before generating trajectories:
+
+- [ ] **How are non-tool actions represented?** As entries in `tool_calls` (uniform, one code
+      path, trivially scoreable) or as a separate field (cleaner conceptually, but the verifier
+      and the loop each grow a branch)? This is the same decision as #2 viewed from the type side.
+- [ ] **Can one step carry more than one tool call?** Parallel calls change what a "step" is, and
+      so change both trajectory records and the reward shape.
+- [ ] **Is the raw provider response retained?** Useful for debugging and re-rendering, but it is
+      provider-shaped, so it must never reach `build_context`.
+- [ ] **Where does `is_final` come from** — the model saying so, or the harness inferring it from
+      an empty `tool_calls`? Inferring is fewer tokens; explicit is less ambiguous.
+
+⚠ **Parsing is a divergence risk.** Each `model_fn` converts its provider's reply into
+`Assistant` — Anthropic content blocks, OpenAI `tool_calls` arrays, and vLLM's output are all
+shaped differently. That parsing step is per-caller code, which makes it the one place the three
+paths can silently disagree while `build_context` stays identical. Write a shared test that feeds
+a recorded response from each provider through its parser and asserts the same `Assistant`.
+
+- [ ] parser conformance test written
+
 ### 3. Base model family
 
 The chat template is part of the format contract, so this must be settled before any training

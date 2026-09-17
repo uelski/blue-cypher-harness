@@ -88,6 +88,8 @@ in either repo.
 - `docs/harness-premise.md` — what "harness in the loop" means, the architecture, decisions made, and what's cheap vs expensive to change
 - `docs/integration-plan.md` — what moves out of the backend, what stays, how the LangGraph graph changes, cutover steps
 - `docs/open-questions.md` — decisions not yet made
+- `plans/` — per-phase implementation plans and decision logs. Living docs: record decisions
+  there as they land. Start with `plans/phase_a_plan.md`.
 
 ## Current state
 
@@ -98,10 +100,25 @@ in either repo.
 - [ ] Base model family chosen
 - [ ] Eval set written (300–500 labeled questions)
 - [ ] Verifier implemented
-- [ ] **Zero-shot baseline measured** ← gate; may end the project early in a good way
+- [ ] Zero-shot baseline measured (a comparison point, **not** a go/no-go — see Goals below)
 - [ ] Trajectories generated
 - [ ] First LoRA trained
 - [ ] Backend cut over to harness
+
+## Goals
+
+Two, and both count:
+
+1. **Make Blue Cypher's tool routing run on a small self-hosted model.**
+2. **Learn what it actually takes to train an open-weight model.** The pipeline and the skill are
+   deliverables in their own right.
+
+Goal 2 is why the zero-shot baseline is not a gate. `docs/harness-premise.md` says a base model
+scoring within ~2 points zero-shot means ship it and skip training; that no longer holds. Measure
+the baseline as data, then train regardless.
+
+Goal 2 also sets the pace: prefer small, individually verifiable steps with the mechanics
+explained, and transparent tooling over config-driven abstractions that hide what is happening.
 
 ## Note on production
 
